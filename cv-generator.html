@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CV Generator AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink: #1a1814;
+      --ink2: #3d3a35;
+      --muted: #8c8880;
+      --rule: #e5e2dc;
+      --paper: #faf8f4;
+      --cream: #f2ede4;
+      --accent: #c1440e;
+      --mono: 'DM Mono', monospace;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 0;
+    }
+
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--paper);
+      border-bottom: 1px solid var(--rule);
+      padding: 1.2rem 4rem;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .nav-back { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); text-decoration: none; letter-spacing: 0.08em; transition: color 0.2s; }
+    .nav-back:hover { color: var(--accent); }
+    .nav-label { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1rem; color: var(--muted); }
+
+    .wrapper {
+      position: relative; z-index: 1;
+      display: grid; grid-template-columns: 1fr 1fr;
+      min-height: calc(100vh - 57px);
+    }
+
+    .form-side {
+      padding: 5rem 4rem;
+      border-right: 1px solid var(--rule);
+    }
+
+    .eyebrow { font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); margin-bottom: 1.5rem; }
+    .form-title { font-family: 'Playfair Display', serif; font-size: clamp(2.5rem, 4vw, 3.8rem); font-weight: 700; line-height: 1.05; margin-bottom: 0.8rem; }
+    .form-sub { font-size: 0.95rem; color: var(--muted); line-height: 1.65; margin-bottom: 3rem; max-width: 400px; }
+
+    .field { margin-bottom: 2rem; }
+    .field-label { display: block; font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink2); margin-bottom: 0.6rem; }
+
+    input[type=text], textarea {
+      width: 100%; background: transparent; border: none;
+      border-bottom: 1px solid var(--rule);
+      padding: 0.7rem 0; color: var(--ink);
+      font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 300;
+      outline: none; transition: border-color 0.3s; line-height: 1.5; resize: none;
+    }
+    input:focus, textarea:focus { border-bottom-color: var(--ink); }
+    input::placeholder, textarea::placeholder { color: #c5c0b8; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+
+    .btn-submit {
+      margin-top: 1rem;
+      display: inline-flex; align-items: center; gap: 0.8rem;
+      background: var(--ink); color: var(--paper);
+      font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 1rem 2rem; border: none; cursor: pointer; transition: all 0.25s;
+    }
+    .btn-submit:hover { background: var(--accent); }
+    .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-arrow { transition: transform 0.2s; }
+    .btn-submit:hover .btn-arrow { transform: translateX(4px); }
+
+    .error { display: none; font-family: var(--mono); font-size: 0.72rem; color: var(--accent); margin-top: 1rem; }
+    .error.show { display: block; }
+
+    .output-side { background: var(--cream); padding: 5rem 4rem; position: relative; }
+
+    .output-placeholder { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 1rem; }
+    .placeholder-rule { width: 40px; height: 1px; background: var(--rule); }
+    .placeholder-text { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.1rem; color: #d0cab8; max-width: 260px; line-height: 1.5; }
+
+    .loading { display: none; height: 100%; justify-content: center; align-items: center; flex-direction: column; gap: 2rem; }
+    .loading.show { display: flex; }
+    .loading-text { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.2rem; color: var(--muted); }
+    .loading-dots { display: flex; gap: 0.5rem; }
+    .dot { width: 5px; height: 5px; background: var(--ink2); border-radius: 50%; animation: bounce 1.2s ease-in-out infinite; }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,80%,100%{transform:scale(0.6);opacity:0.3} 40%{transform:scale(1);opacity:1} }
+
+    .cv-output { display: none; }
+    .cv-output.show { display: block; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+    .cv-actions { display: flex; gap: 1rem; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--rule); }
+    .cv-btn { font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.6rem 1.2rem; border: 1px solid var(--rule); background: transparent; color: var(--ink2); cursor: pointer; transition: all 0.2s; }
+    .cv-btn:hover { border-color: var(--ink); color: var(--ink); }
+    .cv-btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .cv-btn.primary:hover { background: var(--accent); border-color: var(--accent); }
+
+    .cv-doc { background: white; padding: 3rem; box-shadow: 0 2px 30px rgba(0,0,0,0.08); }
+    .cv-doc pre { white-space: pre-wrap; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; line-height: 1.8; color: var(--ink2); }
+
+    @media (max-width: 900px) {
+      nav { padding: 1rem 1.5rem; }
+      .wrapper { grid-template-columns: 1fr; }
+      .form-side { padding: 3rem 1.5rem; border-right: none; border-bottom: 1px solid var(--rule); }
+      .output-side { padding: 3rem 1.5rem; min-height: 60vh; }
+      .two-col { grid-template-columns: 1fr; gap: 0; }
+    }
+  </style>
+</head>
+<body>
+<nav>
+  <a href="index.html" class="nav-back">&larr; Back</a>
+  <span class="nav-label">CV Generator AI</span>
+</nav>
+
+<div class="wrapper">
+  <div class="form-side">
+    <div class="eyebrow">Project 01 &mdash; Generator</div>
+    <h1 class="form-title">Your CV<br>in 30 seconds.</h1>
+    <p class="form-sub">Describe your experience in your own words. AI will turn it into a professional document ready to send.</p>
+
+    <div class="two-col">
+      <div class="field">
+        <label class="field-label">Full name</label>
+        <input type="text" id="name" placeholder="John Smith"/>
+      </div>
+      <div class="field">
+        <label class="field-label">Job title</label>
+        <input type="text" id="role" placeholder="Junior Developer"/>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Experience and skills</label>
+      <textarea id="experience" rows="5" placeholder="Write naturally — what you have done, what you know, what projects you have built..."></textarea>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Education</label>
+      <input type="text" id="education" placeholder="Technical school, online courses, self-taught..."/>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Extras</label>
+      <input type="text" id="extras" placeholder="Languages, portfolio, hobbies..."/>
+    </div>
+
+    <button class="btn-submit" id="genBtn" onclick="generate()">
+      Generate CV <span class="btn-arrow">&rarr;</span>
+    </button>
+    <div class="error" id="error"></div>
+  </div>
+
+  <div class="output-side">
+    <div class="output-placeholder" id="placeholder">
+      <div class="placeholder-rule"></div>
+      <p class="placeholder-text">Fill in the form and your ready CV will appear here.</p>
+      <div class="placeholder-rule"></div>
+    </div>
+
+    <div class="loading" id="loading">
+      <p class="loading-text">AI is writing your CV&hellip;</p>
+      <div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    </div>
+
+    <div class="cv-output" id="output">
+      <div class="cv-actions">
+        <button class="cv-btn primary" onclick="copyCv()">Copy text</button>
+        <button class="cv-btn" onclick="resetForm()">Generate new</button>
+      </div>
+      <div class="cv-doc"><pre id="cvText"></pre></div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function generate() {
+  const name = document.getElementById('name').value.trim();
+  const experience = document.getElementById('experience').value.trim();
+  if (!name || !experience) { showErr('Enter your name and describe your experience.'); return; }
+  hideErr();
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('output').classList.remove('show');
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('genBtn').disabled = true;
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514', max_tokens: 1000,
+        messages: [{ role: 'user', content: `Write a professional CV in English for: ${name}, stanowisko: ${document.getElementById('role').value||'Developer'}, doswiadczenie: ${experience}, wyksztalcenie: ${document.getElementById('education').value||'nie podano'}, dodatki: ${document.getElementById('extras').value||'brak'}. Sekcje: Dane (z placeholderami [email][tel][miasto]) | Profil zawodowy | Doswiadczenie | Umiejetnosci | Education | Jezyki. Sekcje oddziel ===. Pisz konkretnie i pewnie. Tylko CV, zero komentarzy.` }]
+      })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error.message);
+    document.getElementById('cvText').textContent = data.content.map(b=>b.text||'').join('');
+    document.getElementById('output').classList.add('show');
+  } catch(e) {
+    showErr('Error: ' + e.message);
+    document.getElementById('placeholder').style.display = 'flex';
+  } finally {
+    document.getElementById('loading').classList.remove('show');
+    document.getElementById('genBtn').disabled = false;
+  }
+}
+
+function copyCv() {
+  navigator.clipboard.writeText(document.getElementById('cvText').textContent);
+  const btn = event.target; btn.textContent = 'Copied';
+  setTimeout(()=>btn.textContent='Copy text', 2000);
+}
+function resetForm() {
+  document.getElementById('output').classList.remove('show');
+  document.getElementById('placeholder').style.display = 'flex';
+}
+function showErr(m) { const e=document.getElementById('error'); e.textContent=m; e.classList.add('show'); }
+function hideErr() { document.getElementById('error').classList.remove('show'); }
+</script>
+</body>
+</html>

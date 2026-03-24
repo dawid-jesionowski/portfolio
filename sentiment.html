@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Analiza Tekstu / Text Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #020805;
+      --panel: #050f08;
+      --border: #0d2b14;
+      --green: #00ff41;
+      --green2: #00c832;
+      --green3: rgba(0,255,65,0.15);
+      --green4: rgba(0,255,65,0.06);
+      --amber: #ffb000;
+      --red: #ff3333;
+      --dim: rgba(0,255,65,0.4);
+      --dimmer: rgba(0,255,65,0.2);
+      --mono: 'Share Tech Mono', monospace;
+      --vt: 'VT323', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--green);
+      font-family: var(--mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* CRT SCANLINES */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.15) 2px,
+        rgba(0,0,0,0.15) 4px
+      );
+      pointer-events: none; z-index: 9999;
+    }
+
+    /* CRT VIGNETTE */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.7) 100%);
+      pointer-events: none; z-index: 9998;
+    }
+
+    /* GLOW AMBIENT */
+    .glow-bg {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 800px; height: 600px;
+      background: radial-gradient(ellipse, rgba(0,255,65,0.03) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* NAV */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .nav-back {
+      font-size: 0.78rem; color: var(--dim); text-decoration: none;
+      letter-spacing: 0.08em; transition: color 0.2s;
+    }
+    .nav-back:hover { color: var(--green); text-shadow: 0 0 8px var(--green); }
+
+    .nav-title { font-family: var(--vt); font-size: 1.3rem; color: var(--green); letter-spacing: 0.1em; }
+
+    .nav-clock {
+      font-size: 0.72rem; color: var(--dim); letter-spacing: 0.12em;
+    }
+
+    /* MAIN */
+    .terminal {
+      position: relative; z-index: 1;
+      max-width: 1100px; margin: 0 auto;
+      padding: 3rem 2rem;
+    }
+
+    /* BOOT HEADER */
+    .boot-header {
+      border: 1px solid var(--border);
+      padding: 1.5rem 2rem;
+      margin-bottom: 2rem;
+      background: var(--panel);
+      position: relative;
+    }
+
+    .boot-header::before {
+      content: 'SYSTEM';
+      position: absolute; top: -0.6rem; left: 1.5rem;
+      background: var(--bg); padding: 0 0.5rem;
+      font-size: 0.65rem; color: var(--dimmer);
+      letter-spacing: 0.15em;
+    }
+
+    .boot-line { font-size: 0.75rem; color: var(--dim); line-height: 1.8; letter-spacing: 0.04em; }
+    .boot-line .ok { color: var(--green); }
+    .boot-line .warn { color: var(--amber); }
+
+    .system-title {
+      font-family: var(--vt); font-size: clamp(2.5rem, 5vw, 4rem);
+      color: var(--green); letter-spacing: 0.1em; line-height: 1;
+      margin-top: 1rem;
+      text-shadow: 0 0 30px rgba(0,255,65,0.4);
+    }
+
+    /* LAYOUT */
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+
+    /* PANEL */
+    .panel {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      position: relative;
+    }
+
+    .panel-header {
+      background: var(--border);
+      padding: 0.6rem 1.2rem;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.7rem; letter-spacing: 0.12em;
+    }
+
+    .panel-title-text { color: var(--green); }
+    .panel-status { color: var(--dim); font-size: 0.65rem; }
+
+    .panel-body { padding: 1.5rem; }
+
+    /* PROMPT AREA */
+    .prompt-line {
+      display: flex; align-items: flex-start; gap: 0.6rem;
+      margin-bottom: 0.8rem;
+    }
+    .prompt-sym { color: var(--green2); flex-shrink: 0; font-size: 0.85rem; padding-top: 2px; }
+
+    textarea {
+      width: 100%; background: transparent; border: none;
+      outline: none; resize: none;
+      color: var(--green); font-family: var(--mono); font-size: 0.82rem;
+      line-height: 1.6; caret-color: var(--green);
+    }
+    textarea::placeholder { color: var(--border); }
+
+    .cmd-line {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .char-info { font-size: 0.65rem; color: var(--dimmer); letter-spacing: 0.08em; }
+
+    .run-btn {
+      background: transparent; border: 1px solid var(--green2);
+      color: var(--green); font-family: var(--mono); font-size: 0.72rem;
+      letter-spacing: 0.12em; padding: 0.6rem 1.5rem;
+      cursor: pointer; transition: all 0.2s;
+      text-transform: uppercase;
+    }
+    .run-btn:hover { background: var(--green3); box-shadow: 0 0 20px rgba(0,255,65,0.15); }
+    .run-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* OUTPUT */
+    .output-default {
+      padding: 3rem 1.5rem; text-align: center;
+      color: var(--dimmer); font-size: 0.72rem; letter-spacing: 0.1em;
+      line-height: 2;
+    }
+
+    .spinner-wrap {
+      display: none; padding: 3rem; text-align: center;
+    }
+    .spinner-wrap.show { display: block; }
+
+    .spinner-text {
+      font-family: var(--vt); font-size: 1.5rem; color: var(--green);
+      animation: flicker 0.8s steps(1) infinite;
+      letter-spacing: 0.1em;
+    }
+    @keyframes flicker { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .progress {
+      width: 100%; height: 2px; background: var(--border);
+      margin-top: 1rem; overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%; background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: scan 1.5s ease-in-out infinite;
+    }
+    @keyframes scan { 0%{width:0;margin-left:0} 50%{width:60%;margin-left:20%} 100%{width:0;margin-left:100%} }
+
+    /* RESULTS */
+    .results { display: none; }
+    .results.show { display: block; animation: ttyIn 0.3s ease; }
+    @keyframes ttyIn { from{opacity:0} to{opacity:1} }
+
+    .result-row {
+      display: flex; justify-content: space-between;
+      padding: 0.7rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.78rem;
+    }
+    .result-row:last-child { border-bottom: none; }
+    .r-key { color: var(--dimmer); letter-spacing: 0.08em; }
+    .r-val { color: var(--green); font-weight: bold; }
+    .r-val.pos { color: var(--green); text-shadow: 0 0 8px rgba(0,255,65,0.5); }
+    .r-val.neg { color: var(--red); text-shadow: 0 0 8px rgba(255,51,51,0.5); }
+    .r-val.neu { color: var(--amber); }
+
+    .bar-block { margin: 1rem 0; }
+    .bar-row { margin-bottom: 0.8rem; }
+    .bar-label { font-size: 0.65rem; color: var(--dimmer); letter-spacing: 0.1em; margin-bottom: 0.3rem; display: flex; justify-content: space-between; }
+    .bar-track { background: var(--border); height: 3px; position: relative; overflow: hidden; }
+    .bar-fill { height: 100%; transition: width 1.2s cubic-bezier(0.4,0,0.2,1); }
+    .bf-pos { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .bf-neg { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    .bf-neu { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+
+    .kw-block { margin-top: 1rem; }
+    .kw-title { font-size: 0.65rem; color: var(--dimmer); letter-spacing: 0.12em; margin-bottom: 0.6rem; }
+    .kw-wrap { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .kw {
+      font-size: 0.68rem; padding: 0.25rem 0.6rem;
+      border: 1px solid var(--border); color: var(--dim);
+      letter-spacing: 0.06em;
+    }
+    .kw.hot { border-color: var(--green2); color: var(--green); }
+
+    .analysis-block {
+      margin-top: 1rem; padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .analysis-label { font-size: 0.65rem; color: var(--dimmer); letter-spacing: 0.12em; margin-bottom: 0.5rem; }
+    .analysis-text { font-size: 0.78rem; color: var(--dim); line-height: 1.7; }
+
+    .err { display: none; font-size: 0.72rem; color: var(--red); margin-top: 0.8rem; letter-spacing: 0.06em; }
+    .err.show { display: block; }
+
+    @media (max-width: 700px) {
+      nav { padding: 0.8rem 1rem; }
+      .terminal { padding: 2rem 1rem; }
+      .grid { grid-template-columns: 1fr; }
+      .nav-clock { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="glow-bg"></div>
+
+<nav>
+  <a href="index.html" class="nav-back">[&lt;] POWROT</a>
+  <span class="nav-title">TEXT_ANALYZER.EXE</span>
+  <span class="nav-clock" id="clock">--:--:--</span>
+</nav>
+
+<div class="terminal">
+
+  <div class="boot-header">
+    <div class="boot-line">
+      <span class="ok">[OK]</span> NLP_CORE v2.4.1 loaded &nbsp;&nbsp;
+      <span class="ok">[OK]</span> SENTIMENT_ENGINE ready &nbsp;&nbsp;
+      <span class="warn">[!]</span> Requires Claude API key
+    </div>
+    <div class="system-title">ANALIZA<br>TEKSTU AI_</div>
+  </div>
+
+  <div class="grid">
+    <!-- INPUT PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-text">INPUT &gt; PASTE_TEXT</span>
+        <span class="panel-status" id="statusLight">READY</span>
+      </div>
+      <div class="panel-body">
+        <div class="prompt-line">
+          <span class="prompt-sym">&gt;_</span>
+          <textarea id="inputText" rows="10"
+            placeholder="paste text here to analyse...&#10;&#10;email, review, product description,&#10;comment, article — anything."
+            oninput="updateInfo()"></textarea>
+        </div>
+        <div class="cmd-line">
+          <span class="char-info" id="info">CHARS: 0 &nbsp;|&nbsp; WORDS: 0</span>
+          <button class="run-btn" id="runBtn" onclick="analyze()">[ RUN ANALYSIS ]</button>
+        </div>
+        <div class="err" id="err"></div>
+      </div>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title-text">OUTPUT &gt; RESULTS</span>
+        <span class="panel-status" id="outStatus">WAITING</span>
+      </div>
+      <div class="panel-body">
+
+        <div id="outDefault" class="output-default">
+          &gt; SYSTEM IDLE<br>
+          &gt; PASTE TEXT AND RUN ANALYSIS<br>
+          &gt; _
+        </div>
+
+        <div class="spinner-wrap" id="spinner">
+          <div class="spinner-text">ANALYZING...</div>
+          <div class="progress"><div class="progress-bar"></div></div>
+        </div>
+
+        <div class="results" id="results">
+          <div id="mainMetrics"></div>
+          <div class="bar-block" id="bars"></div>
+          <div class="analysis-block" id="analysisBlock"></div>
+          <div class="kw-block" id="kwBlock"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Clock
+setInterval(() => {
+  const n = new Date();
+  document.getElementById('clock').textContent =
+    String(n.getHours()).padStart(2,'0') + ':' +
+    String(n.getMinutes()).padStart(2,'0') + ':' +
+    String(n.getSeconds()).padStart(2,'0');
+}, 1000);
+
+function updateInfo() {
+  const t = document.getElementById('inputText').value;
+  const words = t.trim() ? t.trim().split(/\s+/).length : 0;
+  document.getElementById('info').textContent = `CHARS: ${t.length} | WORDS: ${words}`;
+}
+
+async function analyze() {
+  const text = document.getElementById('inputText').value.trim();
+  if (text.length < 10) { showErr('>> ERROR: INPUT TOO SHORT'); return; }
+  hideErr();
+  setLoading(true);
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514', max_tokens: 1000,
+        messages: [{ role: 'user', content: `Przeanalizuj tekst. Odpowiedz TYLKO JSON bez markdown:
+"${text}"
+
+{"sentiment":"Positive"|"Negative"|"Neutral"|"Mixed","pos":number 0-100,"neg":number 0-100,"neu":number 0-100,"ton":"Formalny"|"Nieformalny"|"Emocjonalny"|"Techniczny"|"Perswazyjny","czytelnosc":number 1-10,"analysis":"2 sentences in English","recommendation":"1 concrete suggestion","slowa":["array","5-7","slow"]}` }]
+      })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error.message);
+    const raw = data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
+    render(JSON.parse(raw));
+  } catch(e) {
+    showErr('>> ERROR: ' + e.message.toUpperCase());
+  } finally {
+    setLoading(false);
+  }
+}
+
+function render(d) {
+  const cls = d.sentiment === 'Positive' ? 'pos' : d.sentiment === 'Negative' ? 'neg' : 'neu';
+
+  document.getElementById('mainMetrics').innerHTML = `
+    <div class="result-row"><span class="r-key">SENTIMENT</span><span class="r-val ${cls}">${d.sentiment.toUpperCase()}</span></div>
+    <div class="result-row"><span class="r-key">TONE</span><span class="r-val">${d.ton.toUpperCase()}</span></div>
+    <div class="result-row"><span class="r-key">READABILITY</span><span class="r-val">${d.czytelnosc}/10</span></div>
+  `;
+
+  document.getElementById('bars').innerHTML = `
+    <div class="bar-row">
+      <div class="bar-label"><span>POSITIVE</span><span>${d.pos}%</span></div>
+      <div class="bar-track"><div class="bar-fill bf-pos" style="width:0" data-w="${d.pos}"></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label"><span>NEGATIVE</span><span>${d.neg}%</span></div>
+      <div class="bar-track"><div class="bar-fill bf-neg" style="width:0" data-w="${d.neg}"></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label"><span>NEUTRAL</span><span>${d.neu}%</span></div>
+      <div class="bar-track"><div class="bar-fill bf-neu" style="width:0" data-w="${d.neu}"></div></div>
+    </div>
+  `;
+
+  setTimeout(() => {
+    document.querySelectorAll('.bar-fill[data-w]').forEach(el => {
+      el.style.width = el.dataset.w + '%';
+    });
+  }, 50);
+
+  document.getElementById('analysisBlock').innerHTML = `
+    <div class="analysis-label">// ANALYSIS</div>
+    <div class="analysis-text">${d.analysis}</div>
+    <div class="analysis-label" style="margin-top:0.8rem">// RECOMMENDATION</div>
+    <div class="analysis-text">${d.recommendation}</div>
+  `;
+
+  document.getElementById('kwBlock').innerHTML = `
+    <div class="kw-title">// KEYWORDS</div>
+    <div class="kw-wrap">${d.slowa.map((w,i)=>`<span class="kw ${i<3?'hot':''}">${w.toUpperCase()}</span>`).join('')}</div>
+  `;
+
+  document.getElementById('results').classList.add('show');
+  document.getElementById('outStatus').textContent = 'DONE';
+}
+
+function setLoading(on) {
+  document.getElementById('spinner').classList.toggle('show', on);
+  document.getElementById('outDefault').style.display = on ? 'none' : '';
+  document.getElementById('runBtn').disabled = on;
+  document.getElementById('statusLight').textContent = on ? 'PROCESSING' : 'READY';
+  if (on) { document.getElementById('outStatus').textContent = 'RUNNING'; document.getElementById('results').classList.remove('show'); }
+}
+function showErr(m) { const e=document.getElementById('err'); e.textContent=m; e.classList.add('show'); }
+function hideErr() { document.getElementById('err').classList.remove('show'); }
+</script>
+</body>
+</html>
